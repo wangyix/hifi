@@ -93,6 +93,8 @@ int InboundAudioStream::parseData(const QByteArray& packet) {
         _isStarved = false;
     }
 
+    tryReachDesiredRingBufferSize();
+
     _framesAvailableStats.update(_ringBuffer.framesAvailable());
 
     return readBytes;
@@ -103,8 +105,8 @@ bool InboundAudioStream::popFrames(int numFrames, bool starveOnFail) {
     int numSamplesRequested = numFrames * _ringBuffer.getNumFrameSamples();
     if (popped = shouldPop(numSamplesRequested, starveOnFail)) {
         _ringBuffer.shiftReadPosition(numSamplesRequested);
+        _framesAvailableStats.update(_ringBuffer.framesAvailable());
     }
-    _framesAvailableStats.update(_ringBuffer.framesAvailable());
 
     return popped;
 }
@@ -114,8 +116,8 @@ bool InboundAudioStream::popFrames(int16_t* dest, int numFrames, bool starveOnFa
     int numSamplesRequested = numFrames * _ringBuffer.getNumFrameSamples();
     if (popped = shouldPop(numSamplesRequested, starveOnFail)) {
         _ringBuffer.readSamples(dest, numSamplesRequested);
+        _framesAvailableStats.update(_ringBuffer.framesAvailable());
     }
-    _framesAvailableStats.update(_ringBuffer.framesAvailable());
 
     return popped;
 }
@@ -126,8 +128,8 @@ bool InboundAudioStream::popFrames(AudioRingBuffer::ConstIterator* nextOutput, i
     if (popped = shouldPop(numSamplesRequested, starveOnFail)) {
         *nextOutput = _ringBuffer.nextOutput();
         _ringBuffer.shiftReadPosition(numSamplesRequested);
+        _framesAvailableStats.update(_ringBuffer.framesAvailable());
     }
-    _framesAvailableStats.update(_ringBuffer.framesAvailable());
 
     return popped;
 }
@@ -164,6 +166,7 @@ void InboundAudioStream::starved() {
     _isStarved = true;
     _consecutiveNotMixedCount = 0;
     _starveCount++;
+    _framesAvailableStats.reset();
 }
 
 
@@ -202,9 +205,11 @@ void InboundAudioStream::frameReceivedUpdateTimingStats() {
         }
         _interframeTimeGapStatsForJitterCalc.clearNewStatsAvailableFlag();
     }
+
+    _desiredJitterBufferFrames = 2;
 }
 
-int InboundAudioStream::writeDroppableSilentSamples(int numSilentSamples) {
+/*int InboundAudioStream::writeDroppableSilentSamples(int numSilentSamples) {
 
     // This adds some number of frames to the desired jitter buffer frames target we use.
     // The larger this value is, the less aggressive we are about reducing the jitter buffer length.
@@ -237,10 +242,46 @@ int InboundAudioStream::writeDroppableSilentSamples(int numSilentSamples) {
         }
     }
     return _ringBuffer.addSilentFrame(numSilentSamples - numSilentFramesToDrop * samplesPerFrame);
+}*/
+
+int InboundAudioStream::tryReachDesiredRingBufferSize() {
+    const int DESIRED_JITTER_BUFFER_FRAMES_PADDING = 1;
+    if (_framesAvailableStats.isWindowFilled() && _framesAvailableStats.getNewStatsAvailableFlag()) {
+
+        int averageJitterBufferFrames = (int)_framesAvailableStats.getWindowAverage();
+        int desiredJitterBufferFramesPlusPadding = _desiredJitterBufferFrames + DESIRED_JITTER_BUFFER_FRAMES_PADDING;
+
+        if (averageJitterBufferFrames > desiredJitterBufferFramesPlusPadding) {
+            int framesToDropDesired = averageJitterBufferFrames - desiredJitterBufferFramesPlusPadding;
+            int framesAvailable = _ringBuffer.framesAvailable();
+
+            if (framesAvailable >= framesToDropDesired + 2) {
+
+                // drop oldest frames from ring buffer
+                _ringBuffer.shiftReadPosition(framesToDropDesired * _ringBuffer.getNumFrameSamples());
+
+                _silentFramesDropped += framesToDropDesired;
+
+                _framesAvailableStats.reset();
+
+                return framesToDropDesired;
+            }
+
+            // we have too many frames but not enough available in the ringbuffer to drop.
+            // don't clear the newStatsAvailable flag since we want to try dropping again
+            // the next time this function is called, regardless if the framesAvailable avg has changed.
+        } else {
+            // if we don't need to drop any frames, clear the newStatsAvailable flag since
+            // we don't want to keep checking.
+
+            _framesAvailableStats.clearNewStatsAvailableFlag();
+        }
+    }
+    return 0;
 }
 
 int InboundAudioStream::writeSamplesForDroppedPackets(int numSamples) {
-    return writeDroppableSilentSamples(numSamples);
+    return _ringBuffer.addSilentFrame(numSamples);
 }
 
 AudioStreamStats InboundAudioStream::getAudioStreamStats() const {

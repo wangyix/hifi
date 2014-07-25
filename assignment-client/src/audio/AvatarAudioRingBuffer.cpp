@@ -54,7 +54,8 @@ int AvatarAudioRingBuffer::parseStreamProperties(PacketType type, const QByteArr
 int AvatarAudioRingBuffer::parseAudioData(PacketType type, const QByteArray& packetAfterStreamProperties, int numAudioSamples) {
     int readBytes = 0;
     if (type == PacketTypeSilentAudioFrame) {
-        writeDroppableSilentSamples(numAudioSamples);
+        //writeDroppableSilentSamples(numAudioSamples);
+        _ringBuffer.addSilentFrame(numAudioSamples);
     } else {
         // there is audio data to read
         readBytes += _ringBuffer.writeData(packetAfterStreamProperties.data(), numAudioSamples * sizeof(int16_t));
