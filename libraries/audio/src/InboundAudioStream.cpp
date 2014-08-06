@@ -344,3 +344,16 @@ AudioStreamStats InboundAudioStream::updateSeqHistoryAndGetAudioStreamStats() {
     _incomingSequenceNumberStats.pushStatsToHistory();
     return getAudioStreamStats();
 }
+
+float calculateRepeatedFrameFadeFactor(int framesAfterSource) {
+    // fade factor scheme is from this paper:
+    // http://inst.eecs.berkeley.edu/~ee290t/sp04/lectures/packet_loss_recov_paper11.pdf
+
+    const int INITIAL_FRAMES_NO_FADE = 2.0f;
+    const float FRAMES_FADE_TO_ZERO = 32.0f;
+
+    if (framesAfterSource < INITIAL_FRAMES_NO_FADE) {
+        return 1.0f;
+    }
+    return std::max((framesAfterSource - INITIAL_FRAMES_NO_FADE) / FRAMES_FADE_TO_ZERO, 0.0f);
+}

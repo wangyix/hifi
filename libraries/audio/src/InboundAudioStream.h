@@ -180,4 +180,6 @@ protected:
     int _currentJitterBufferFrames;
 };
 
+float calculateRepeatedFrameFadeFactor(int framesAfterSource);
+
 #endif // hifi_InboundAudioStream_h
