@@ -52,8 +52,6 @@ public:
     
     int readSamples(int16_t* destination, int maxSamples);
     int writeSamples(const int16_t* source, int maxSamples);
-
-    int writeLastFrameRepeated(int maxSamples);
     
     int readData(char* data, int maxSize);
     int writeData(const char* data, int maxSize);
@@ -72,7 +70,7 @@ public:
     
     int getOverflowCount() const { return _overflowCount; } /// how many times has the ring buffer has overwritten old data
     
-    int addSilentFrame(int numSilentSamples);
+    int addSilentSamples(int samples);
 
 private:
     float getFrameLoudness(const int16_t* frameStart) const;
@@ -157,10 +155,20 @@ public:
         }
 
         void readSamples(int16_t* dest, int numSamples) {
+            int16_t* at = _at;
             for (int i = 0; i < numSamples; i++) {
-                *dest = *(*this);
+                *dest = *at;
                 ++dest;
-                ++(*this);
+                at = (at == _bufferLast) ? _bufferFirst : at + 1;
+            }
+        }
+
+        void readSamplesWithFade(int16_t* dest, int numSamples, float fade) {
+            int16_t* at = _at;
+            for (int i = 0; i < numSamples; i++) {
+                *dest = (float)*at * fade;
+                ++dest;
+                at = (at == _bufferLast) ? _bufferFirst : at + 1;
             }
         }
     
@@ -181,6 +189,9 @@ public:
     };
 
     ConstIterator nextOutput() const { return ConstIterator(_buffer, _bufferLength, _nextOutput); }
+    ConstIterator endOfLastWrite() const { return ConstIterator(_buffer, _bufferLength, _endOfLastWrite); }
+
+    int writeSamplesWithFade(ConstIterator source, int maxSamples, float fade);
 
     float getFrameLoudness(ConstIterator frameStart) const;
 };

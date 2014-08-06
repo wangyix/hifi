@@ -110,6 +110,8 @@ public:
 
     int getPacketsReceived() const { return _incomingSequenceNumberStats.getReceived(); }
 
+    AudioRingBuffer::ConstIterator getNextOutput() const { return _ringBuffer.nextOutput(); }
+
 private:
     void frameReceivedUpdateTimingStats();
     int clampDesiredJitterBufferFramesValue(int desired) const;
@@ -180,6 +182,6 @@ protected:
     int _currentJitterBufferFrames;
 };
 
-float calculateRepeatedFrameFadeFactor(int framesAfterSource);
+float calculateRepeatedFrameFadeFactor(int indexOfRepeat);
 
 #endif // hifi_InboundAudioStream_h

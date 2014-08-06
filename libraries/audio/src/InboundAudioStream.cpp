@@ -187,7 +187,7 @@ int InboundAudioStream::popFrames(int maxFrames, bool allOrNothing, bool starveI
             // we can't pop any frames. set this stream to starved if needed
             if (starveIfNoFramesPopped) {
                 setToStarved();
-                _consecutiveNotMixedCount = 1;
+                _consecutiveNotMixedCount++;
             }
             _lastPopSucceeded = false;
         }
@@ -308,12 +308,22 @@ int InboundAudioStream::writeDroppableSilentSamples(int numSilentSamples) {
         _framesAvailableStat.reset();
     }
 
-    return _ringBuffer.addSilentFrame(numSilentSamples - numSilentFramesToDrop * samplesPerFrame);
+    return _ringBuffer.addSilentSamples(numSilentSamples - numSilentFramesToDrop * samplesPerFrame);
 }
 
 int InboundAudioStream::writeSamplesForDroppedPackets(int numSamples) {
-    //return _ringBuffer.writeLastFrameRepeated(numSamples);
-    return 0;
+    int frameSize = _ringBuffer.getNumFrameSamples();
+    AudioRingBuffer::ConstIterator frameToRepeat = _ringBuffer.endOfLastWrite() - frameSize;
+
+    int samplesToWrite = numSamples;
+    int indexOfRepeat = 0;
+    do {
+        int samplesToWriteThisIteration = std::min(samplesToWrite, frameSize);
+        float fade = calculateRepeatedFrameFadeFactor(indexOfRepeat);
+        samplesToWrite -= _ringBuffer.writeSamplesWithFade(frameToRepeat, samplesToWriteThisIteration, fade);
+        indexOfRepeat++;
+    } while (samplesToWrite > 0);
+    return numSamples;
 }
 
 AudioStreamStats InboundAudioStream::getAudioStreamStats() const {
@@ -345,15 +355,20 @@ AudioStreamStats InboundAudioStream::updateSeqHistoryAndGetAudioStreamStats() {
     return getAudioStreamStats();
 }
 
-float calculateRepeatedFrameFadeFactor(int framesAfterSource) {
+float calculateRepeatedFrameFadeFactor(int indexOfRepeat) {
     // fade factor scheme is from this paper:
     // http://inst.eecs.berkeley.edu/~ee290t/sp04/lectures/packet_loss_recov_paper11.pdf
 
-    const int INITIAL_FRAMES_NO_FADE = 2.0f;
-    const float FRAMES_FADE_TO_ZERO = 32.0f;
+    const float INITIAL_MSECS_NO_FADE = 20.0f;
+    const float MSECS_FADE_TO_ZERO = 320.0f;
 
-    if (framesAfterSource < INITIAL_FRAMES_NO_FADE) {
+    const float INITIAL_FRAMES_NO_FADE = INITIAL_MSECS_NO_FADE * (float)USECS_PER_MSEC / (float)BUFFER_SEND_INTERVAL_USECS;
+    const float FRAMES_FADE_TO_ZERO = MSECS_FADE_TO_ZERO * (float)USECS_PER_MSEC / (float)BUFFER_SEND_INTERVAL_USECS;
+
+    if (indexOfRepeat <= INITIAL_FRAMES_NO_FADE) {
         return 1.0f;
+    } else if (indexOfRepeat <= INITIAL_FRAMES_NO_FADE + FRAMES_FADE_TO_ZERO) {
+        return 1.0f - ((indexOfRepeat - INITIAL_FRAMES_NO_FADE) / FRAMES_FADE_TO_ZERO);
     }
-    return std::max((framesAfterSource - INITIAL_FRAMES_NO_FADE) / FRAMES_FADE_TO_ZERO, 0.0f);
+    return 0.0f;
 }

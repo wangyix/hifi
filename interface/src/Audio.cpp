@@ -713,7 +713,7 @@ void Audio::handleAudioInput() {
 
                 _lastSentAudioPacket = now;
             }
-            if (rand() % 5 != 0)
+            
             nodeList->writeDatagram(audioDataPacket, numAudioBytes + leadingBytes, audioMixer);
             _outgoingAvatarAudioSequenceNumber++;
 
@@ -756,10 +756,6 @@ void Audio::processReceivedAudioStreamSamples(const QByteArray& inputBuffer, QBy
 
         receivedSamples = _outputProcessingBuffer;
     } else {
-        // copy the samples we'll resample from the ring buffer - this also
-        // pushes the read pointer of the ring buffer forwards
-        //receivedAudioStreamPopOutput.readSamples(receivedSamples, numNetworkOutputSamples);
-
         receivedSamples = reinterpret_cast<const int16_t*>(inputBuffer.data());
     }
 
@@ -896,7 +892,7 @@ void Audio::addSpatialAudioToBuffer(unsigned int sampleTime, const QByteArray& s
             unsigned int delayCount = delay * _desiredOutputFormat.channelCount();
             unsigned int silentCount = (remaining < delayCount) ? remaining : delayCount;
             if (silentCount) {
-               _spatialAudioRingBuffer.addSilentFrame(silentCount);
+               _spatialAudioRingBuffer.addSilentSamples(silentCount);
             }
 
             // Recalculate the number of remaining samples
@@ -1747,13 +1743,13 @@ float Audio::getInputRingBufferMsecsAvailable() const {
 }
 
 qint64 Audio::AudioOutputIODevice::readData(char * data, qint64 maxSize) {
-    MixedProcessedAudioStream& receivedAUdioStream = _parent._receivedAudioStream;
+    MixedProcessedAudioStream& receivedAudioStream = _parent._receivedAudioStream;
 
     int samplesRequested = maxSize / sizeof(int16_t);
-    int samplesPopped;
     int bytesWritten;
-    if ((samplesPopped = receivedAUdioStream.popSamples(samplesRequested, false)) > 0) {
-        AudioRingBuffer::ConstIterator lastPopOutput = receivedAUdioStream.getLastPopOutput();
+    int samplesPopped = receivedAudioStream.popSamples(samplesRequested, false);
+    if (samplesPopped > 0) {
+        AudioRingBuffer::ConstIterator lastPopOutput = receivedAudioStream.getLastPopOutput();
         lastPopOutput.readSamples((int16_t*)data, samplesPopped);
         bytesWritten = samplesPopped * sizeof(int16_t);
     } else {

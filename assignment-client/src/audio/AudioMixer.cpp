@@ -105,9 +105,9 @@ void AudioMixer::addStreamToMixForListeningNodeWithStream(PositionalAudioStream*
     // This improves the perceived quality of the audio slightly.
 
     float repeatedFrameFadeFactor = 1.0f;
-
+    
     if (!streamToAdd->lastPopSucceeded()) {
-        repeatedFrameFadeFactor = calculateRepeatedFrameFadeFactor(streamToAdd->getConsecutiveNotMixedCount());
+        repeatedFrameFadeFactor = calculateRepeatedFrameFadeFactor(streamToAdd->getConsecutiveNotMixedCount() - 1);
         if (repeatedFrameFadeFactor == 0.0f) {
             return;
         }
@@ -234,12 +234,13 @@ void AudioMixer::addStreamToMixForListeningNodeWithStream(PositionalAudioStream*
         int delayedChannelIndex = 0;
         
         const int SINGLE_STEREO_OFFSET = 2;
-        
+        float attenuationAndFade = attenuationCoefficient * repeatedFrameFadeFactor;
+
         for (int s = 0; s < NETWORK_BUFFER_LENGTH_SAMPLES_STEREO; s += 4) {
             
             // setup the int16_t variables for the two sample sets
-            correctStreamSample[0] = streamPopOutput[s / 2] * attenuationCoefficient;
-            correctStreamSample[1] = streamPopOutput[(s / 2) + 1] * attenuationCoefficient;
+            correctStreamSample[0] = streamPopOutput[s / 2] * attenuationAndFade;
+            correctStreamSample[1] = streamPopOutput[(s / 2) + 1] * attenuationAndFade;
             
             delayedChannelIndex = s + (numSamplesDelay * 2) + delayedChannelOffset;
             
