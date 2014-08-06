@@ -84,7 +84,7 @@ protected:
 
     int _frameCapacity;
     int _sampleCapacity;
-    bool _isFull;
+    int _bufferLength;      // actual length of _buffer: will be one frame larger than _sampleCapacity
     int _numFrameSamples;
     int16_t* _nextOutput;
     int16_t* _endOfLastWrite;
@@ -97,13 +97,13 @@ public:
     class ConstIterator { //public std::iterator < std::forward_iterator_tag, int16_t > {
     public:
         ConstIterator()
-            : _capacity(0),
+            : _bufferLength(0),
             _bufferFirst(NULL),
             _bufferLast(NULL),
             _at(NULL) {}
 
         ConstIterator(int16_t* bufferFirst, int capacity, int16_t* at)
-            : _capacity(capacity),
+            : _bufferLength(capacity),
             _bufferFirst(bufferFirst),
             _bufferLast(bufferFirst + capacity - 1),
             _at(at) {}
@@ -113,7 +113,7 @@ public:
         const int16_t& operator*() { return *_at; }
 
         ConstIterator& operator=(const ConstIterator& rhs) {
-            _capacity = rhs._capacity;
+            _bufferLength = rhs._bufferLength;
             _bufferFirst = rhs._bufferFirst;
             _bufferLast = rhs._bufferLast;
             _at = rhs._at;
@@ -147,11 +147,11 @@ public:
         }
 
         ConstIterator operator+(int i) {
-            return ConstIterator(_bufferFirst, _capacity, atShiftedBy(i));
+            return ConstIterator(_bufferFirst, _bufferLength, atShiftedBy(i));
         }
 
         ConstIterator operator-(int i) {
-            return ConstIterator(_bufferFirst, _capacity, atShiftedBy(-i));
+            return ConstIterator(_bufferFirst, _bufferLength, atShiftedBy(-i));
         }
 
         void readSamples(int16_t* dest, int numSamples) {
@@ -164,21 +164,21 @@ public:
     
     private:
         int16_t* atShiftedBy(int i) {
-            i = (_at - _bufferFirst + i) % _capacity;
+            i = (_at - _bufferFirst + i) % _bufferLength;
             if (i < 0) {
-                i += _capacity;
+                i += _bufferLength;
             }
             return _bufferFirst + i;
         }
 
     private:
-        int _capacity;
+        int _bufferLength;
         int16_t* _bufferFirst;
         int16_t* _bufferLast;
         int16_t* _at;
     };
 
-    ConstIterator nextOutput() const { return ConstIterator(_buffer, _sampleCapacity, _nextOutput); }
+    ConstIterator nextOutput() const { return ConstIterator(_buffer, _bufferLength, _nextOutput); }
 
     float getFrameLoudness(ConstIterator frameStart) const;
 };
