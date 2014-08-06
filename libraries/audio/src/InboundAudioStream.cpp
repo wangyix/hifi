@@ -98,8 +98,6 @@ int InboundAudioStream::parseData(const QByteArray& packet) {
     readBytes += parseStreamProperties(packetType, packet.mid(readBytes), numAudioSamples);
 
     // handle this packet based on its arrival status.
-    // For now, late packets are ignored.  It may be good in the future to insert the late audio frame
-    // into the ring buffer to fill in the missing frame if it hasn't been mixed yet.
     switch (arrivalInfo._status) {
         case SequenceNumberStats::Early: {
             int packetsDropped = arrivalInfo._seqDiffFromExpected;
@@ -111,6 +109,8 @@ int InboundAudioStream::parseData(const QByteArray& packet) {
             break;
         }
         default: {
+            // For now, late packets are ignored.  It may be good in the future to insert the late audio frame
+            // into the ring buffer to fill in the missing frame if it hasn't been mixed yet.
             break;
         }
     }
@@ -312,7 +312,8 @@ int InboundAudioStream::writeDroppableSilentSamples(int numSilentSamples) {
 }
 
 int InboundAudioStream::writeSamplesForDroppedPackets(int numSamples) {
-    return _ringBuffer.writeLastFrameRepeated(numSamples);
+    //return _ringBuffer.writeLastFrameRepeated(numSamples);
+    return 0;
 }
 
 AudioStreamStats InboundAudioStream::getAudioStreamStats() const {
