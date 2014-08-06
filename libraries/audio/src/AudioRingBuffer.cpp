@@ -116,6 +116,28 @@ int AudioRingBuffer::writeSamples(const int16_t* source, int maxSamples) {
     return writeData((const char*) source, maxSamples * sizeof(int16_t));
 }
 
+int AudioRingBuffer::writeLastFrameRepeated(int maxSamples) {
+    int samplesToWrite = maxSamples;
+    int samplesRoomFor = _sampleCapacity - samplesAvailable();
+    if (samplesToWrite > samplesRoomFor) {
+        qDebug() << "Dropping some last-frame-repeated samples to prevent ring buffer overflow";
+        samplesToWrite = samplesRoomFor;
+    }
+
+    int16_t* oneFrameBehindEndOfLastWrite = shiftedPositionAccomodatingWrap(_endOfLastWrite, -_numFrameSamples);
+
+    int16_t* bufferLast = _buffer + _bufferLength - 1;
+    for (int i = 0; i < samplesToWrite; i++) {
+
+        *_endOfLastWrite = *oneFrameBehindEndOfLastWrite;
+
+        _endOfLastWrite = _endOfLastWrite == bufferLast ? _buffer : _endOfLastWrite + 1;
+        oneFrameBehindEndOfLastWrite = oneFrameBehindEndOfLastWrite == bufferLast ? _buffer : oneFrameBehindEndOfLastWrite + 1;
+    }
+
+    return samplesToWrite * sizeof(int16_t);
+}
+
 int AudioRingBuffer::writeData(const char* data, int maxSize) {
     // make sure we have enough bytes left for this to be the right amount of audio
     // otherwise we should not copy that data, and leave the buffer pointers where they are

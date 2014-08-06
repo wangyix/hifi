@@ -33,12 +33,14 @@
 
 #include "Agent.h"
 
+static const int RECEIVED_AUDIO_STREAM_CAPACITY_FRAMES = 10;
+
 Agent::Agent(const QByteArray& packet) :
     ThreadedAssignment(packet),
     _voxelEditSender(),
     _particleEditSender(),
     _modelEditSender(),
-    _receivedAudioStream(NETWORK_BUFFER_LENGTH_SAMPLES_STEREO, 1, false, 1, 0, false),
+    _receivedAudioStream(NETWORK_BUFFER_LENGTH_SAMPLES_STEREO, RECEIVED_AUDIO_STREAM_CAPACITY_FRAMES, false, RECEIVED_AUDIO_STREAM_CAPACITY_FRAMES, 0, false),
     _avatarHashMap()
 {
     // be the parent of the script engine so it gets moved when we do

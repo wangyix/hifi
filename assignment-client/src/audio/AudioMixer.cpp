@@ -575,6 +575,7 @@ void AudioMixer::run() {
                     dataAt += NETWORK_BUFFER_LENGTH_BYTES_STEREO;
 
                     // send mixed audio packet
+                    if (rand() % 5 != 0)
                     nodeList->writeDatagram(clientMixBuffer, dataAt - clientMixBuffer, node);
                     nodeData->incrementOutgoingMixedAudioSequenceNumber();
 

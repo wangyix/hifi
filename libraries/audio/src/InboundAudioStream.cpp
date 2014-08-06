@@ -312,7 +312,7 @@ int InboundAudioStream::writeDroppableSilentSamples(int numSilentSamples) {
 }
 
 int InboundAudioStream::writeSamplesForDroppedPackets(int numSamples) {
-    return writeDroppableSilentSamples(numSamples);
+    return _ringBuffer.writeLastFrameRepeated(numSamples);
 }
 
 AudioStreamStats InboundAudioStream::getAudioStreamStats() const {

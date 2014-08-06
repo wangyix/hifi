@@ -52,6 +52,8 @@ public:
     
     int readSamples(int16_t* destination, int maxSamples);
     int writeSamples(const int16_t* source, int maxSamples);
+
+    int writeLastFrameRepeated(int maxSamples);
     
     int readData(char* data, int maxSize);
     int writeData(const char* data, int maxSize);
